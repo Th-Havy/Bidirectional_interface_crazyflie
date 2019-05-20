@@ -90,8 +90,8 @@ private:
     {
         crazyflie_driver::Takeoff srv;
         srv.request.groupMask = 0;
-        srv.request.height = 0.5;
-        srv.request.duration = ros::Duration(2.0);
+        srv.request.height = 0.20;
+        srv.request.duration = ros::Duration(1.0);
         m_serviceTakeoff.call(srv);
     }
 
@@ -99,8 +99,8 @@ private:
     {
         crazyflie_driver::Land srv;
         srv.request.groupMask = 0;
-        srv.request.height = 0.05;
-        srv.request.duration = ros::Duration(3.5);
+        srv.request.height = 0.1;
+        srv.request.duration = ros::Duration(1.0);
         m_serviceLand.call(srv);
     }
 

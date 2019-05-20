@@ -8,7 +8,7 @@
   <node pkg="crazyswarm" type="crazyswarm_server" name="crazyswarm_server" output="screen" >
     <rosparam>
       firmware: "crazyswarm" # one of "crazyswarm", "bitcraze"
-      broadcast_address: "FFE7E7E7E7"
+      broadcast_address: "E7E7E7E701"
       world_frame: "/world"
       genericLogTopics: ["log1"]
       genericLogTopicFrequencies: [10]
@@ -24,12 +24,12 @@
         stabilizer:
           estimator: 3 # 1: complementary, 2: kalman, 3: kalmanUSC (only crazyswarm firmware)
           controller: 2 # 1: PID, 2: mellinger
-        ring:
-          effect: 16 # 6: double spinner, 7: solid color, 16: packetRate
-          solidBlue: 255 # if set to solid color
-          solidGreen: 0 # if set to solid color
-          solidRed: 0 # if set to solid color
-          headlightEnable: 0
+        #ring:
+        #  effect: 16 # 6: double spinner, 7: solid color, 16: packetRate
+        #  solidBlue: 255 # if set to solid color
+        #  solidGreen: 0 # if set to solid color
+        #  solidRed: 0 # if set to solid color
+        #  headlightEnable: 0
         #ekf:
         #  ext_var_xy: 1.5e-7 # 1e-7 # 1.5e-7
         #  ext_var_vel: 2e-4 # 2e-4
@@ -38,19 +38,21 @@
         #  gyro_var_z: 0.2e-2 # 0.2e-4
         #  acc_var_xyz: 2.4e-3 # 2.4e-3
       # tracking
-      motion_capture_type: "vicon" # one of none,vicon,optitrack,qualisys,vrpn
-      object_tracking_type: "libobjecttracker" # one of motionCapture,libobjecttracker
-      vicon_host_name: "vicon"
-      # optitrack_host_name: "optitrack"
+      motion_capture_type: "vrpn" # one of none,vicon,optitrack,qualisys,vrpn
+      object_tracking_type: "motionCapture" # one of motionCapture,libobjecttracker
+      #vicon_host_name: "vicon"
+      optitrack_host_name: "192.168.1.100"
+      optitrack_local_ip: "localhost"
+      optitrack_server_ip: "192.168.1.100"
       # qualisys_host_name: "10.0.5.219"
       # qualisys_base_port: 22222
-      # vrpn_host_name: "vicon"
+      vrpn_host_name: "192.168.1.100"
       save_point_clouds: ~/pointCloud.ot
       print_latency: False
       write_csvs: False
       force_no_cache: False
       enable_parameters: True
-      enable_logging: False
+      enable_logging: True
     </rosparam>
   </node>
 

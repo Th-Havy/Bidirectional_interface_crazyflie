@@ -29,6 +29,8 @@ int main(int argc, char **argv)
   std::string motionCaptureType;
   nl.param<std::string>("motion_capture_type", motionCaptureType, "vicon");
 
+  ros::Rate r(100); // 10 hz
+
   // Make a new client
   libmotioncapture::MotionCapture* mocap = nullptr;
   if (false)
@@ -126,6 +128,7 @@ int main(int argc, char **argv)
 
 
     ros::spinOnce();
+    r.sleep();
   }
 
   return 0;
