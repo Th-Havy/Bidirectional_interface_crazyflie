@@ -173,17 +173,25 @@ def controlDrone():
 
     time.sleep(1)
 
-    pt = Point(0, 0, 0.1)
+    pt = Point(0, 0, 0.2)
 
     dur = rospy.Duration.from_sec(1.0)
 
     goTo(groupMask=0, relative=True, goal=pt, yaw=0.0, duration=dur)
 
-    time.sleep(0.5)
+    time.sleep(2)
+
+    pt = Point(0.2, 0, 0)
 
     dur = rospy.Duration.from_sec(1.0)
 
-    land(groupMask=0, height=0.05, duration=dur)
+    goTo(groupMask=0, relative=True, goal=pt, yaw=0.0, duration=dur)
+
+    time.sleep(2)
+
+    dur = rospy.Duration.from_sec(1.0)
+
+    land(groupMask=0, height=0.1, duration=dur)
 
     # ROS loop
     """rate = rospy.Rate(50)

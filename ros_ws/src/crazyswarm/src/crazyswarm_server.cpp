@@ -1445,7 +1445,7 @@ public:
     std::string hostname;
     int port;
     nl.getParam("vrpn_host_name", hostname);
-    mocap = new libmotioncapture::MotionCaptureVrpn(hostname);
+    mocap = new libmotioncapture::MotionCaptureVrpn(hostname, 20);
   }
 #endif
     else {
