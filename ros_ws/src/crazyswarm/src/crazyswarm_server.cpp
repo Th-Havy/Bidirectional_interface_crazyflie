@@ -766,7 +766,6 @@ public:
 
   void runFast()
   {
-    static std::vector<CrazyflieBroadcaster::externalPose> s_previousStates;
     auto stamp = std::chrono::high_resolution_clock::now();
 
     std::vector<CrazyflieBroadcaster::externalPose> states;
@@ -779,15 +778,7 @@ public:
       for (auto cf : m_cfs) {
         publishRigidBody(cf->frame(), cf->id(), states);
       }
-      // ADDED BY ME !!!!!!!!!
-      if (states.empty())
-      {
-        states = s_previousStates;
-      }
-      else
-      {
-        s_previousStates = states;
-      }
+
     } else {
       // run object tracker
       {
