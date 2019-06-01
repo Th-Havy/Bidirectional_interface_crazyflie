@@ -22,6 +22,8 @@ from crazyflie_driver.msg import Position as PositionMsg
 HAND_RIGIDBODY = "hand"
 DRONE_RIGIDBODY = "cf1"
 
+COMMAND_UPDATE_RATE = 10 # Hz
+
 handRoomScaling = 2.0
 clutchActivated = False
 
@@ -55,7 +57,7 @@ def sendPositionCommandThread(goToCommand):
     """thread sending the position target"""
     global handTarget
 
-    dur = rospy.Duration.from_sec(1)
+    dur = rospy.Duration.from_sec(1.0 / COMMAND_UPDATE_RATE)
 
     rate = rospy.Rate(20)
     while not rospy.is_shutdown():
@@ -98,7 +100,7 @@ def initHandTracking(handRigidbodyName, droneRigidbodyName):
 
     rospy.Subscriber("vrpn_client_node/" + handRigidbodyName + "/pose", PoseStamped, updateHandPosition)
 
-    mouseListener = mouse.Listener(on_click=on_click)
+    mouseListener = mouse.Listener(on_click=setClutch)
     mouseListener.start()
 
 # quat in Quaternion message format
@@ -151,28 +153,26 @@ def scalePoint(p, val):
 
 ################################# Mouse inputs
 
-def on_click(x, y, button, pressed):
+def setClutch(x, y, button, pressed):
+    """ Callback for the left mouse click, which activates/deactivates the clutch"""
     global clutchActivated
     global clutchTriggered
     global referenceYaw
     global handYaw
 
     if button ==  mouse.Button.left:
-        #rospy.loginfo('{0} at {1} {2}'.format(
-        #    'Pressed' if pressed else 'Released',
-        #    (x, y), time.time()))
         if (pressed):
-            rospy.loginfo("pressed")
             clutchActivated = True
             clutchTriggered = True
             referenceYaw = handYaw;
         else:
-            rospy.loginfo("released")
             clutchActivated = False
 
 #################################
 
 def clampInSafeArea(target):
+    """ Limit the target position to a defined space, to avoid collisions
+    with the floor, walls and ceiling."""
     if target.x > 3:
         target.x = 3
     if target.x < -3:
@@ -183,12 +183,13 @@ def clampInSafeArea(target):
         target.y = -3
     if target.z > 3:
         target.z = 3
-    if target.z < 0.1:
-        target.z = 0.1
+    if target.z < 0.2:
+        target.z = 0.2
 
     return target
 
 def updateHeader(header):
+    """ Update the ROS header, with the current time and increase its seq id"""
     header.seq = header.seq + 1
     header.stamp=rospy.Time.now()
 
@@ -298,7 +299,7 @@ def controlDrone():
     t.start()
 
     # ROS loop
-    rate = rospy.Rate(1)
+    rate = rospy.Rate(COMMAND_UPDATE_RATE)
     while not rospy.is_shutdown():
 
         deltaHandPosition = substractPoints(rawHandPosition, oldRawHandPosition)
