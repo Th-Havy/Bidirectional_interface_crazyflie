@@ -1,32 +1,65 @@
 #!/usr/bin/env python
+
+################################################################################
+# Modules
+################################################################################
+
+# ROS
 import rospy
 from std_msgs.msg import String, Duration, Header
 from geometry_msgs.msg import Point, Quaternion, PoseStamped, Pose
 import tf.transformations
 
+# Python
 import time
 from pynput import mouse
 from math import sqrt
-
 import threading
 
+# Crazyflie
 from crazyflie_driver.srv import *
 from crazyflie_driver.msg import Position as PositionMsg
-#import crazyflie_driver.srv._Takeoff as TakeoffSrv
-#import crazyflie_driver.srv._GoTo as GotoSrv
-#import crazyflie_driver.srv._Land as LandSrv
 
+################################################################################
+# Constants
+################################################################################
 
-################################# Mocap
-
+# Rigidbody names set in Optitrack Motive
 HAND_RIGIDBODY = "hand"
 DRONE_RIGIDBODY = "cf1"
 
+MOCAP_INIT_TIMEOUT = 10 # s
+
 COMMAND_UPDATE_RATE = 10 # Hz
+COMMAND_SEND_RATE = 20 # Hz
 
-handRoomScaling = 2.0
+# States of the drone
+LANDED = 0
+TAKING_OFF = 1
+LANDING = 2
+FLYING = 3
+
+TAKE_OFF_HEIGHT = 0.2 # m
+TAKE_OFF_DURATION = 1.0 # s
+
+LAND_HEIGHT = 0.1 # m
+LAND_DURATION = 3.0 # s
+
+# Scaling of hand displacement to drone displacement
+HAND_ROOM_SCALING = 2.0
+
+# Rotation speed factor applied to wrist yaw
+# TODO: Rotation not implemented yet
+ROTATION_SPEED_SCALING = 0.02
+
+# Increase speed of drone for more aggressive motion
+DRONE_SPEED_MULTIPLIER = 1.0
+
+################################################################################
+# Global variables
+################################################################################
+
 clutchActivated = False
-
 # if set to true only when the click is pressed, then set back to false immidiately
 clutchTriggered = False
 
@@ -35,8 +68,6 @@ clutchTriggered = False
 # mocapInputRotation = 90 --> you have the computers behind you
 mocapInputRotation = 0.0
 observationInputRotation = 0.0 # computers behind you
-
-rotationSpeedScaling = 0.02
 
 rawHandPosition = Point(0.0, 0.0, 0.0)
 oldRawHandPosition = Point(0.0, 0.0, 0.0)
@@ -53,64 +84,20 @@ targetPositionInitialized = False
 # Position of the drone
 dronePosition = Point(0.0, 0.0, 0.0)
 
-def sendPositionCommandThread(goToCommand):
-    """thread sending the position target"""
-    global handTarget
+droneState = LANDED
 
-    dur = rospy.Duration.from_sec(1.0 / COMMAND_UPDATE_RATE)
+################################################################################
+# Utility functions
+################################################################################
 
-    rate = rospy.Rate(20)
-    while not rospy.is_shutdown():
-        rospy.loginfo("Command: {0}".format(handTarget))
-        goToCommand(groupMask=0, relative=False, goal=handTarget, yaw=0.0, duration=dur)
-        rate.sleep()
-
-    return
-
-# mocapPos is of type PoseStamped
-def updateHandPosition(mocapPos):
-    global rawHandPosition
-    global rawHandRotation
-
-    rawHandPosition = mocapPos.pose.position
-    rawHandRotation = mocapPos.pose.orientation
-
-# Get drone position from mocap to initialized the target at the drone position
-def updateDronePosition(mocapPos):
-    global targetPositionInitialized
-    global handTarget
-    global dronePosition
-
-    # Initialise target position at the current location of the drone
-    if not targetPositionInitialized:
-        handTarget = mocapPos.pose.position
-        targetPositionInitialized = True
-        rospy.loginfo("Initialized target position")
-
-    dronePosition = mocapPos.pose.position
-
-def initHandTracking(handRigidbodyName, droneRigidbodyName):
-    global targetPositionInitialized
-
-    rospy.Subscriber("vrpn_client_node/" + droneRigidbodyName + "/pose", PoseStamped, updateDronePosition)
-
-    # Wait until target position initialized, which is done in the updateDronePosition() callback
-    while not targetPositionInitialized:
-        time.sleep(0.1)
-
-    rospy.Subscriber("vrpn_client_node/" + handRigidbodyName + "/pose", PoseStamped, updateHandPosition)
-
-    mouseListener = mouse.Listener(on_click=setClutch)
-    mouseListener.start()
-
-# quat in Quaternion message format
 def getYaw (quat):
+    """ quat in Quaternion message format """
     orientation_list = [quat.x, quat.y, quat.z, quat.w]
     (roll, pitch, yaw) = tf.transformations.euler_from_quaternion (orientation_list)
     return yaw
 
-# quat in Quaternion message format, point in Point message format
 def rotatePoint(quat, point):
+    """ quat in Quaternion message format, point in Point message format """
     q1 = [quat.x, quat.y, quat.z, quat.w]
 
     v1 = [point.x, point.y, point.z]
@@ -151,14 +138,114 @@ def scalePoint(p, val):
 
     return s
 
-################################# Mouse inputs
+def updateHeader(header):
+    """ Updates the ROS header, with the current time and increase its seq id"""
+    header.seq = header.seq + 1
+    header.stamp=rospy.Time.now()
 
-def setClutch(x, y, button, pressed):
-    """ Callback for the left mouse click, which activates/deactivates the clutch"""
+################################################################################
+# Core functions
+################################################################################
+
+def sendPositionCommandThread(goToCommand, takeoffCommand, landCommand):
+    """ Thread sending the position target"""
+    global handTarget
+    global droneState
+
+    gotoDuration = rospy.Duration.from_sec(1.0 / COMMAND_UPDATE_RATE / DRONE_SPEED_MULTIPLIER)
+    takeoffDuration = rospy.Duration.from_sec(TAKE_OFF_DURATION)
+    landDuration = rospy.Duration.from_sec(LAND_DURATION)
+
+    rate = rospy.Rate(COMMAND_SEND_RATE)
+    while not rospy.is_shutdown():
+        if droneState == FLYING:
+            #rospy.loginfo("Command: {0}".format(handTarget))
+            goToCommand(groupMask=0, relative=False, goal=handTarget, yaw=0.0, duration=gotoDuration)
+        elif droneState == TAKING_OFF:
+            takeoffCommand(groupMask=0, height=TAKE_OFF_HEIGHT, duration=takeoffDuration)
+        elif droneState == LANDING:
+            landCommand(groupMask=0, height=LAND_HEIGHT, duration=landDuration)
+            pass
+        rate.sleep()
+
+    return
+
+def waitForTakeOff(duration):
+    """ Update the drone state to flying after a certain duration """
+    global droneState
+
+    time.sleep(duration)
+    droneState = FLYING
+
+    return
+
+def waitForLanding(duration):
+    """ Update the drone state to landed after a certain duration """
+    global droneState
+
+    time.sleep(duration)
+    droneState = LANDED
+
+    return
+
+# mocapPos is of type PoseStamped
+def updateHandPosition(mocapPos):
+        """ Callback called when a new position of the hand is sent by the mocap.
+            Updates the global variables holding the pose of the hand. """
+    global rawHandPosition
+    global rawHandRotation
+
+    rawHandPosition = mocapPos.pose.position
+    rawHandRotation = mocapPos.pose.orientation
+
+# Get drone position from mocap to initialized the target at the drone position
+def updateDronePosition(mocapPos):
+    """ Callback called when a new position of the drone is sent by the mocap.
+        Updates the global variable holding the position of the drone.
+        It will initialize the target position at startup with the current
+        position of the drone."""
+    global targetPositionInitialized
+    global handTarget
+    global dronePosition
+
+    # Initialise target position at the current location of the drone
+    if not targetPositionInitialized:
+        handTarget = mocapPos.pose.position
+        targetPositionInitialized = True
+        rospy.loginfo("Initialized target position")
+
+    dronePosition = mocapPos.pose.position
+
+def initHandTracking(handRigidbodyName, droneRigidbodyName):
+    """ Inits subscribers to rigidbodies tracked by the mocap system.
+        We are interested in the position of the hand and the drone. """
+    global targetPositionInitialized
+
+    rospy.Subscriber("vrpn_client_node/" + droneRigidbodyName + "/pose", PoseStamped, updateDronePosition)
+
+    # Wait until target position initialized, which is done in the updateDronePosition() callback
+    sleepTime = 0.1
+    elapsed = 0.0
+    while not targetPositionInitialized and elapsed < MOCAP_INIT_TIMEOUT:
+        time.sleep(sleepTime)
+        elapsed = elapsed + sleepTime
+
+    if not targetPositionInitialized:
+        rospy.logwarn("Target position not initialized (Mocap timeout)")
+
+    rospy.Subscriber("vrpn_client_node/" + handRigidbodyName + "/pose", PoseStamped, updateHandPosition)
+
+    mouseListener = mouse.Listener(on_click=onClickCallback)
+    mouseListener.start()
+
+def onClickCallback(x, y, button, pressed):
+    """ Callback for the mouse clicks, which activates/deactivates the clutch
+        and triggers take-off and landing """
     global clutchActivated
     global clutchTriggered
     global referenceYaw
     global handYaw
+    global droneState
 
     if button ==  mouse.Button.left:
         if (pressed):
@@ -167,8 +254,14 @@ def setClutch(x, y, button, pressed):
             referenceYaw = handYaw;
         else:
             clutchActivated = False
-
-#################################
+    elif button ==  mouse.Button.right:
+        if (pressed):
+            if droneState == LANDED:
+                droneState = TAKING_OFF
+                threading.Thread(target=waitForTakeOff, args=(TAKE_OFF_DURATION,)).start()
+            elif droneState == FLYING:
+                droneState = LANDING
+                threading.Thread(target=waitForLanding, args=(TAKE_OFF_DURATION,)).start()
 
 def clampInSafeArea(target):
     """ Limit the target position to a defined space, to avoid collisions
@@ -183,21 +276,33 @@ def clampInSafeArea(target):
         target.y = -3
     if target.z > 3:
         target.z = 3
-    if target.z < 0.2:
-        target.z = 0.2
+    if target.z < TAKE_OFF_HEIGHT:
+        target.z = TAKE_OFF_HEIGHT
 
     return target
 
-def updateHeader(header):
-    """ Update the ROS header, with the current time and increase its seq id"""
-    header.seq = header.seq + 1
-    header.stamp=rospy.Time.now()
+
+# Low-level commands cannot be mixed with high-level commands
+#def lowLevelCommands(x,y,z):
+#    """ Sends a low-level command for a set point."""
+#    posCommandTopic = rospy.Publisher('cf1/cmd_position', PositionMsg, queue_size=10)
+#    header = Header(seq=1, stamp=rospy.Time.now(), frame_id='world')
+#    posCommandTopic.publish(PositionMsg(header=header, x=x, y=y, z=z, yaw=0.0))
+
 
 def controlDrone():
+    global rawHandPosition
+    global oldRawHandPosition
+    global deltaHandPosition
+    global handTarget
+    global clutchActivated
+    global clutchTriggered
+    global currentState
+
     # Create node
     rospy.init_node('handInterface')
 
-    rospy.loginfo("Initialized hand interface node")
+    rospy.loginfo("Initializing hand interface node.")
 
     initHandTracking(HAND_RIGIDBODY, DRONE_RIGIDBODY)
 
@@ -206,97 +311,20 @@ def controlDrone():
     rospy.wait_for_service('cf1/go_to')
     rospy.wait_for_service('cf1/land')
 
-    # Acquire reference to these ServiceServer
-    takeoff = rospy.ServiceProxy('takeoff', Takeoff)
+    # Acquire reference to the high-level command services
+    takeoff = rospy.ServiceProxy('cf1/takeoff', Takeoff)
     goTo = rospy.ServiceProxy('cf1/go_to', GoTo)
     land = rospy.ServiceProxy('cf1/land', Land)
-    #mocap : ('vrpn_client_node/cf1/pose')
-    #lowlevel: /cf1/cmd_position
 
-    rospy.loginfo("All necessary services advertised.")
+    droneState = LANDED
 
-    time.sleep(0.5)
-
-
-    """rospy.loginfo("Z=0.2")
-    posCommandTopic = rospy.Publisher('cf1/cmd_position', PositionMsg, queue_size=10)
-
-    header = Header(seq=1, stamp=rospy.Time.now(), frame_id='world')
-    posCommandTopic.publish(PositionMsg(header=header, x=0.0, y=0.0, z=0.2, yaw=0.0))
-
-    time.sleep(2.0)
-
-    rospy.loginfo("Z=0.9")
-    updateHeader(header)
-    posCommandTopic.publish(PositionMsg(header=header, x=0.0, y=0.0, z=0.9, yaw=0.0))
-
-    time.sleep(5.0)
-
-    rospy.loginfo("Z=0.9, X=0.9")
-    updateHeader(header)
-    posCommandTopic.publish(PositionMsg(header=header, x=0.9, y=0.0, z=0.9, yaw=0.0))
-
-    time.sleep(5.0)
-
-    rospy.loginfo("Z=0.2, X=0.9")
-    updateHeader(header)
-    posCommandTopic.publish(PositionMsg(header=header, x=0.9, y=0.0, z=0.1, yaw=0.0))"""
-
-    """rospy.loginfo("Taking off")
-
-    dur = rospy.Duration.from_sec(1.0)
-
-    takeoff(groupMask=0, height=0.1, duration=dur)
-
-    time.sleep(3)
-
-    rospy.loginfo("Z=0.9")
-    pt = Point(0, 0, 0.9)
-
-    dur = rospy.Duration.from_sec(5.0)
-
-    goTo(groupMask=0, relative=True, goal=pt, yaw=0.0, duration=dur)
-
-    time.sleep(10)
-
-    rospy.loginfo("X=1.0")
-
-    pt = Point(1.0, 0, 0)
-
-    dur = rospy.Duration.from_sec(5.0)
-
-    goTo(groupMask=0, relative=True, goal=pt, yaw=0.0, duration=dur)
-
-    time.sleep(10)
-
-    rospy.loginfo("Z=-0.9")
-    pt = Point(0, 0, -0.9)
-
-    dur = rospy.Duration.from_sec(5.0)
-
-    goTo(groupMask=0, relative=True, goal=pt, yaw=0.0, duration=dur)
-
-    time.sleep(10)
-
-    rospy.loginfo("finished")
-
-    dur = rospy.Duration.from_sec(5.0)
-
-    land(groupMask=0, height=0.1, duration=dur)"""
-
-    global handRoomScaling
-    global rawHandPosition
-    global oldRawHandPosition
-    global deltaHandPosition
-    global handTarget
-    global clutchActivated
-    global clutchTriggered
-
-    header = Header(seq=1, stamp=rospy.Time.now(), frame_id='world')
-
-
-    t = threading.Thread(target=sendPositionCommandThread, args=(goTo,))
+    # Start thread sending the position commands
+    t = threading.Thread(target=sendPositionCommandThread, args=(goTo, takeoff, land))
     t.start()
+
+    rospy.loginfo("Initialized successfully.")
+
+    header = Header(seq=1, stamp=rospy.Time.now(), frame_id='world')
 
     # ROS loop
     rate = rospy.Rate(COMMAND_UPDATE_RATE)
@@ -315,8 +343,8 @@ def controlDrone():
             if clutchTriggered == True:
                 clutchTriggered = False
                 handTarget = dronePosition
-            rospy.loginfo("Clutch")
-            #droneVelocityControl.desiredYawRate = Mathf.DeltaAngle(referenceYaw, handYaw) * rotationSpeedScaling
+            #rospy.loginfo("Clutch")
+            #droneVelocityControl.desiredYawRate = Mathf.DeltaAngle(referenceYaw, handYaw) * ROTATION_SPEED_SCALING
         else:
             #droneVelocityControl.desiredYawRate = 0.0
 
@@ -325,16 +353,9 @@ def controlDrone():
             # Convert from list to Message type
             directionRotation = Quaternion(rot[0], rot[1], rot[2], rot[3])
 
-            handTarget = addPoints(handTarget, scalePoint(rotatePoint(directionRotation, deltaHandPosition), handRoomScaling))
+            handTarget = addPoints(handTarget, scalePoint(rotatePoint(directionRotation, deltaHandPosition), HAND_ROOM_SCALING))
             handTarget = clampInSafeArea(handTarget)
 
-            #updateHeader(header)
-            #posCommandTopic.publish(PositionMsg(header=header, x=handTarget.x, y=handTarget.y, z=handTarget.z, yaw=0.0))
-            #dur = rospy.Duration.from_sec(1)
-            #goTo(groupMask=0, relative=False, goal=handTarget, yaw=0.0, duration=dur)
-
-        rospy.loginfo("Target: {0}".format(handTarget))
-        rospy.loginfo("Hand position: {0}".format(rawHandPosition))
         rate.sleep()
 
 
