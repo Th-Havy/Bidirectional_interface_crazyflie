@@ -13,7 +13,7 @@
       genericLogTopics: ["log1"]
       genericLogTopicFrequencies: [10]
       # Log the multi ranger deck distances on topic /cf1/log1:
-      # genericLogTopic_log1_Variables: ["range.front", "range.back", "range.left", "range.right", "range.up", "range.zrange"]
+      genericLogTopic_log1_Variables: ["range.front", "range.back", "range.up", "range.zrange", "range.left", "range.right"]
       # genericLogTopic_log1_Variables: ["ekfprof.usec_setup", "ekfprof.usec_innov", "ekfprof.usec_gain", "ekfprof.usec_corr", "ekfprof.usec_cov"]
       # genericLogTopic_log1_Variables: ["profiling.usec_ekf", "profiling.usec_traj", "profiling.usec_ctrl", "profiling.usec_idle"]
       # genericLogTopic_log1_Variables: ["stabilizer.x", "ctrltarget.x", "vicon.x", "stabilizer.z", "ctrltarget.z", "vicon.z"]

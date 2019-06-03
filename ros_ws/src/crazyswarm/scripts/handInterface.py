@@ -190,8 +190,8 @@ def waitForLanding(duration):
 
 # mocapPos is of type PoseStamped
 def updateHandPosition(mocapPos):
-        """ Callback called when a new position of the hand is sent by the mocap.
-            Updates the global variables holding the pose of the hand. """
+    """ Callback called when a new position of the hand is sent by the mocap.
+        Updates the global variables holding the pose of the hand. """
     global rawHandPosition
     global rawHandRotation
 
@@ -298,6 +298,7 @@ def controlDrone():
     global clutchActivated
     global clutchTriggered
     global currentState
+    global droneState
 
     # Create node
     rospy.init_node('handInterface')
@@ -335,26 +336,30 @@ def controlDrone():
 
         oldRawHandPosition = rawHandPosition
 
-        # Ignore large deltas (dangerous)
-        if (sqrt(deltaHandPosition.x * deltaHandPosition.x + deltaHandPosition.y * deltaHandPosition.y + deltaHandPosition.z * deltaHandPosition.z) > 1.0):
-            continue
+        if droneState == FLYING:
+            if clutchActivated == True:
+                if clutchTriggered == True:
+                    clutchTriggered = False
+                    handTarget = dronePosition
+                #rospy.loginfo("Clutch")
+                #droneVelocityControl.desiredYawRate = Mathf.DeltaAngle(referenceYaw, handYaw) * ROTATION_SPEED_SCALING
+            else:
+                #droneVelocityControl.desiredYawRate = 0.0
 
-        if clutchActivated == True:
-            if clutchTriggered == True:
-                clutchTriggered = False
-                handTarget = dronePosition
-            #rospy.loginfo("Clutch")
-            #droneVelocityControl.desiredYawRate = Mathf.DeltaAngle(referenceYaw, handYaw) * ROTATION_SPEED_SCALING
+                # Ignore large deltas (dangerous)
+                if (sqrt(deltaHandPosition.x * deltaHandPosition.x + deltaHandPosition.y * deltaHandPosition.y + deltaHandPosition.z * deltaHandPosition.z) > 1.0):
+                    continue
+
+                rot = tf.transformations.quaternion_from_euler (0, observationInputRotation + mocapInputRotation, 0)
+
+                # Convert from list to Message type
+                directionRotation = Quaternion(rot[0], rot[1], rot[2], rot[3])
+
+                handTarget = addPoints(handTarget, scalePoint(rotatePoint(directionRotation, deltaHandPosition), HAND_ROOM_SCALING))
+                handTarget = clampInSafeArea(handTarget)
         else:
-            #droneVelocityControl.desiredYawRate = 0.0
-
-            rot = tf.transformations.quaternion_from_euler (0, observationInputRotation + mocapInputRotation, 0)
-
-            # Convert from list to Message type
-            directionRotation = Quaternion(rot[0], rot[1], rot[2], rot[3])
-
-            handTarget = addPoints(handTarget, scalePoint(rotatePoint(directionRotation, deltaHandPosition), HAND_ROOM_SCALING))
-            handTarget = clampInSafeArea(handTarget)
+            handTarget = dronePosition
+            pass
 
         rate.sleep()
 

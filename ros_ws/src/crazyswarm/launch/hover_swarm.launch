@@ -10,10 +10,10 @@
       firmware: "crazyswarm" # one of "crazyswarm", "bitcraze"
       broadcast_address: "E7E7E7E701"
       world_frame: "/world"
-      genericLogTopics: ["log1"]
-      genericLogTopicFrequencies: [10]
+      # genericLogTopics: ["log1"]
+      # genericLogTopicFrequencies: [10]
       # Log the multi ranger deck distances on topic /cf1/log1:
-      genericLogTopic_log1_Variables: ["range.front", "range.back", "range.left", "range.right", "range.up", "range.zrange"]
+      genericLogTopic_log1_Variables: ["range.front", "range.back", "range.up", "range.zrange", "range.left", "range.right"]
       # genericLogTopic_log1_Variables: ["ekfprof.usec_setup", "ekfprof.usec_innov", "ekfprof.usec_gain", "ekfprof.usec_corr", "ekfprof.usec_cov"]
       # genericLogTopic_log1_Variables: ["profiling.usec_ekf", "profiling.usec_traj", "profiling.usec_ctrl", "profiling.usec_idle"]
       # genericLogTopic_log1_Variables: ["stabilizer.x", "ctrltarget.x", "vicon.x", "stabilizer.z", "ctrltarget.z", "vicon.z"]
@@ -40,7 +40,7 @@
         #  gyro_var_z: 0.2e-2 # 0.2e-4
         #  acc_var_xyz: 2.4e-3 # 2.4e-3
       # tracking
-      motion_capture_type: "none" # one of none,vicon,optitrack,qualisys,vrpn
+      motion_capture_type: "optitrack" # one of none,vicon,optitrack,qualisys,vrpn
       object_tracking_type: "motionCapture" # one of motionCapture,libobjecttracker
       # vicon_host_name: "vicon"
       optitrack_host_name: "192.168.1.100"
