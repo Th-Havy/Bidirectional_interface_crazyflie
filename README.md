@@ -1,7 +1,8 @@
 <p align="center">
 ![EPFL logo](./readme_images/epfl_logo.png)
-![LIS logo](./readme_images/logo_LIS.png)
+
 </p>
+![LIS logo](./readme_images/logo_LIS.png)
 
 # Bidirectional interface - hardware implementation with crazyflie
 
