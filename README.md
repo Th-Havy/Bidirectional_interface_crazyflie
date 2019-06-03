@@ -1,7 +1,5 @@
-<p align="center">
 ![EPFL logo](https://github.com/Th-Havy/Bidirectional_interface_crazyflie/blob/master/readme_images/epfl_logo.png)
 ![LIS logo](https://github.com/Th-Havy/Bidirectional_interface_crazyflie/blob/master/readme_images/logo_LIS.png)
-</p>
 
 # Bidirectional interface - hardware implementation with crazyflie
 
