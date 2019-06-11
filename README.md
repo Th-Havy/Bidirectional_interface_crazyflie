@@ -11,7 +11,7 @@ The positions of the hand and the drone are acquired using an OptiTrack system.
 
 The [Multi-ranger](https://www.bitcraze.io/multi-ranger-deck/) and [Z-ranger](https://www.bitcraze.io/z-ranger-deck-v2/) expansion decks are used to measure the distances from obstacles in the 6 directions (up/down, left/right, front/back), and the measures are sent to a haptic feedback glove.
 
-**TODO: add gif to show results**
+![demo gif](https://github.com/Th-Havy/Bidirectional_interface_crazyflie/blob/master/readme_images/demo_drone.gif)
 
 ## Setup
 
