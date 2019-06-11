@@ -7,6 +7,10 @@ This repository contains the code for the hardware implementation of the [Bidire
 
 The hardware platform used is the [Crazyflie 2.1](https://www.bitcraze.io/crazyflie-2-1/) drone, and the software platform is [Crazyswarm](https://github.com/USC-ACTLab/crazyswarm) (from which this repository is forked).
 
+The positions of the hand and the drone are acquired using an OptiTrack system.
+
+The [Multi-ranger](https://www.bitcraze.io/multi-ranger-deck/) and [Z-ranger](https://www.bitcraze.io/z-ranger-deck-v2/) expansion decks are used to measure the distances from obstacles in the 6 directions (up/down, left/right, front/back), and the measures are sent to a haptic feedback glove.
+
 **TODO: add gif to show results**
 
 ## Setup
