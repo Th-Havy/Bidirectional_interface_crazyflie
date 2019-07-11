@@ -24,13 +24,13 @@ from crazyflie_driver.msg import GenericLogData
 ################################################################################
 
 DRONE_NAME = 'cf1'
-SENSOR_TOPIC = 'log1'
+SENSOR_TOPIC = 'distances'
 
 MOTORS_UPDATE_RATE = 10 # Hz
 
 NB_DISTANCES = 6
 
-HAPTIC_CLIENT_IP = "192.168.1.118" 
+HAPTIC_CLIENT_IP = "192.168.1.216"
 UDP_PORT_DISTANCES = 8051
 
 STOP_ALL_MOTORS = (float('inf'), float('inf'), float('inf'), float('inf'), float('inf'), float('inf'))

@@ -10,10 +10,10 @@
       firmware: "crazyswarm" # one of "crazyswarm", "bitcraze"
       broadcast_address: "E7E7E7E701"
       world_frame: "/world"
-      genericLogTopics: ["log1"]
-      genericLogTopicFrequencies: [10]
-      # Log the multi ranger deck distances on topic /cf1/log1:
-      genericLogTopic_log1_Variables: ["range.front", "range.back", "range.up", "range.zrange", "range.left", "range.right"]
+      genericLogTopics: ["distances"]
+      genericLogTopicFrequencies: [100]
+      # Log the multi ranger deck distances on topic /cf1/distances:
+      genericLogTopic_distances_Variables: ["range.front", "range.back", "range.up", "range.zrange", "range.left", "range.right"]
       firmwareParams: # for all (independent of type)
         commander:
           enHighLevel: 1
@@ -21,7 +21,7 @@
           estimator: 2 # 1: complementary, 2: kalman, 3: kalmanUSC (only crazyswarm firmware)
           controller: 1 # 1: PID, 2: mellinger
       # tracking
-      motion_capture_type: "optitrack" # one of none,vicon,optitrack,qualisys,vrpn
+      motion_capture_type: "none" # one of none,vicon,optitrack,qualisys,vrpn
       object_tracking_type: "motionCapture" # one of motionCapture,libobjecttracker
       optitrack_host_name: "$(arg optitrack_address)"
       #vrpn_host_name: "$(arg optitrack_address)"
